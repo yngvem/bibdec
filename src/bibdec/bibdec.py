@@ -1,11 +1,13 @@
 from __future__ import annotations
+
+from copy import copy
+from functools import wraps
+from types import BuiltinFunctionType
+from typing import Callable, Dict, List, Optional, Set, TextIO, Union
+
 import bibtexparser
 from bibtexparser.bibdatabase import BibDatabase
 from bibtexparser.bparser import BibTexParser
-from functools import wraps
-from copy import copy
-from typing import TextIO, Union, Optional, Set, Dict, List, Callable
-from types import BuiltinFunctionType
 
 
 class PlaceholderArgument():

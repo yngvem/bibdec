@@ -1,8 +1,10 @@
-import pytest
-from bibdec import Bibliography
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
+
+import pytest
+
+from bibdec import Bibliography
 
 
 @pytest.fixture
