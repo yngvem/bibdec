@@ -9,7 +9,8 @@ from bibdec import Bibliography
 
 @pytest.fixture
 def bibliography_string():
-    return dedent("""\
+    return dedent(
+        """\
         @article{key1,
           author          = {Test Author and Another Author},
           title           = {Some novel contribution},
@@ -33,7 +34,9 @@ def bibliography_string():
           publisher      = {Some Publisher},
           year           = {2020}
         }
-        """)
+        """
+    )
+
 
 @pytest.fixture
 def bibliography(bibliography_string):
@@ -72,6 +75,7 @@ def test_keys_work_as_strings(bibliography):
     @bibliography.register_cites("key1")
     def some_function():
         pass
+
     some_function()
     assert len(bibliography.citations) == 1
     assert {"key1"} in bibliography.citations.values()
@@ -79,6 +83,7 @@ def test_keys_work_as_strings(bibliography):
 
 def test_nonexistent_key_raises_error(bibliography):
     with pytest.raises(ValueError):
+
         @bibliography.register_cites("nonexistent_key")
         def function_with_error():
             pass
@@ -88,11 +93,11 @@ def test_simple_cite_function_works(bibliography):
     def cite_function(a, *, __check_validity__=False):
         citations = {}
         if a == 1 or __check_validity__:
-            citations['a=1'] = "key1"
+            citations["a=1"] = "key1"
         if a == 2 or __check_validity__:
-            citations['a=2'] = "key2"
+            citations["a=2"] = "key2"
         return citations
-    
+
     @bibliography.register_cites(cite_function=cite_function)
     def simple_function(a):
         pass
@@ -111,18 +116,17 @@ def test_simple_cite_function_works(bibliography):
     assert any("a=2" in signature for signature in bibliography.citations)
 
 
-
 def test_multiple_cites_cite_function_works(bibliography):
     def cite_function(a, b, *, __check_validity__=False):
         citations = {}
         if a == 1 or __check_validity__:
-            citations['a=1'] = "key1"
+            citations["a=1"] = "key1"
         if a == 2 or __check_validity__:
-            citations['a=2'] = "key2"
+            citations["a=2"] = "key2"
         if b == 1 or __check_validity__:
-            citations['b=1'] = "key3"
+            citations["b=1"] = "key3"
         return citations
-    
+
     @bibliography.register_cites(cite_function=cite_function)
     def simple_function(a, b):
         pass
@@ -136,7 +140,6 @@ def test_multiple_cites_cite_function_works(bibliography):
     assert any("a=1" in signature for signature in bibliography.citations)
     assert not any("b=1" in signature for signature in bibliography.citations)
 
-
     simple_function(2, 1)
     assert len(bibliography.citations) == 2
     assert {"key2", "key3"} in bibliography.citations.values()
@@ -146,13 +149,14 @@ def test_multiple_cites_cite_function_works(bibliography):
 
 def test_cite_function_must_have_same_number_of_arguments(bibliography):
     with pytest.raises(TypeError):
+
         def cite_function(a, *, __check_validity__=False):
             return {}
-        
+
         @bibliography.register_cites(cite_function=cite_function)
         def error_func(a, b):
             pass
-            
+
 
 def test_c_function_raises_type_error(bibliography):
     with pytest.raises(TypeError):
@@ -161,8 +165,9 @@ def test_c_function_raises_type_error(bibliography):
 
 def test_class_raises_type_error(bibliography):
     with pytest.raises(TypeError):
+
         class F:
             pass
+
         bibliography.register_cites("key1")(F)
         bibliography.register_cites("key1")(range)
-    
