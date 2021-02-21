@@ -36,16 +36,19 @@ def bibliography_string():
 
 @pytest.fixture
 def bibliography(bibliography_string):
+    return Bibliography(bibliography_string)
+
+
+def test_bibliography_created_correct_from_file(bibliography_string):
     with TemporaryDirectory() as tmpdir:
-        bib_file = Path(tmpdir) / "bib_file.bib"
+        bib_file = Path(tmpdir) / "bibliography.bib"
         with open(bib_file, "w") as f:
             f.write(bibliography_string)
-        bibliography = Bibliography(bib_file)
-    return bibliography
-
-
-def test_can_create_bibliography(bibliography):
-    pass
+        with open(bib_file, "r") as f:
+            bibliography_loaded = Bibliography.load(f)
+    bibliography = Bibliography(bibliography_string)
+    assert bibliography_loaded.full_bibliography == bibliography.full_bibliography
+    assert bibliography_loaded.bib_database.entries == bibliography.bib_database.entries
 
 
 def test_bibliography_has_correct_length(bibliography, bibliography_string):
@@ -54,7 +57,7 @@ def test_bibliography_has_correct_length(bibliography, bibliography_string):
 
 
 def test_keys_are_added_after_calling(bibliography):
-    @bibliography.cites({"key1"})
+    @bibliography.register_cites({"key1"})
     def some_function():
         pass
 
@@ -65,7 +68,7 @@ def test_keys_are_added_after_calling(bibliography):
 
 
 def test_keys_work_as_strings(bibliography):
-    @bibliography.cites("key1")
+    @bibliography.register_cites("key1")
     def some_function():
         pass
     some_function()
@@ -75,7 +78,7 @@ def test_keys_work_as_strings(bibliography):
 
 def test_nonexistent_key_raises_error(bibliography):
     with pytest.raises(ValueError):
-        @bibliography.cites("nonexistent_key")
+        @bibliography.register_cites("nonexistent_key")
         def function_with_error():
             pass
 
@@ -89,7 +92,7 @@ def test_simple_cite_function_works(bibliography):
             citations['a=2'] = "key2"
         return citations
     
-    @bibliography.cites(cite_function=cite_function)
+    @bibliography.register_cites(cite_function=cite_function)
     def simple_function(a):
         pass
 
@@ -119,7 +122,7 @@ def test_multiple_cites_cite_function_works(bibliography):
             citations['b=1'] = "key3"
         return citations
     
-    @bibliography.cites(cite_function=cite_function)
+    @bibliography.register_cites(cite_function=cite_function)
     def simple_function(a, b):
         pass
 
@@ -145,8 +148,20 @@ def test_cite_function_must_have_same_number_of_arguments(bibliography):
         def cite_function(a, *, __check_validity__=False):
             return {}
         
-        @bibliography.cites(cite_function=cite_function)
+        @bibliography.register_cites(cite_function=cite_function)
         def error_func(a, b):
             pass
             
-        
+
+def test_c_function_raises_type_error(bibliography):
+    with pytest.raises(TypeError):
+        bibliography.register_cites("key1")(min)
+
+
+def test_class_raises_type_error(bibliography):
+    with pytest.raises(TypeError):
+        class F:
+            pass
+        bibliography.register_cites("key1")(F)
+        bibliography.register_cites("key1")(range)
+    
