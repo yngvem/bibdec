@@ -8,7 +8,6 @@ from textwrap import dedent
 @pytest.fixture
 def bibliography_string():
     return dedent("""\
-
         @article{key1,
           author          = {Test Author and Another Author},
           title           = {Some novel contribution},
