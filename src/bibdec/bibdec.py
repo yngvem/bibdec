@@ -39,8 +39,8 @@ class Bibliography:
     a list of all citations, and is then prompted with a list of function
     calls and corresponding bibtex keys.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     bibliography : str
         str string containing a BibTeX bibliography
     parser : bibtexparser.bparser.BibTexParser [Optional]
@@ -54,6 +54,17 @@ class Bibliography:
         bibtex keys as values
     wrapped_functions : List[Callable]
         List of all functions monitored by the decorator
+
+    Examples
+    --------
+    >>> bibliography = Bibliography(bibtex_string)
+    ... @bibliography.register_cite({"key1", "key3"})
+    ... def double(x):
+    ...    return 2*x
+    ... print(bibliography.citations)
+    ... double(x)
+    {}
+    {"__main__.double()": {"key1", "key3"}}
     """
 
     def __init__(self, bibliography: str, parser: BibTexParser = None) -> None:
@@ -69,6 +80,15 @@ class Bibliography:
 
     @classmethod
     def load(cls, bibliography_file: TextIO, parser: BibTexParser = None) -> Bibliography:
+        """Load bibliography from file.
+
+        Parameters
+        ----------
+        bibliography_file : file-like
+            Bibliography file to read. Should have a ``read`` method that returns a string.
+        parser : bibtexparser.bparser.BibTexParser [Optional]
+            Custom BibTexParser parser used to load the bibliography
+        """
         return cls(bibliography_file.read())
 
     def __len__(self):
@@ -135,6 +155,8 @@ class Bibliography:
     def register_cites(
         self, keys: Optional[Union[Set[str], str]] = None, cite_function: Optional[Callable] = None
     ) -> Callable:
+        """Register citations used by the specified function."""
+
         def decorator(f):
             nonlocal self, keys, cite_function
 
