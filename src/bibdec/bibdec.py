@@ -1,7 +1,11 @@
+from __future__ import annotations
 import bibtexparser
 from bibtexparser.bibdatabase import BibDatabase
+from bibtexparser.bparser import BibTexParser
 from functools import wraps
 from copy import copy
+from typing import TextIO, Union, Optional, Set, Dict, List, Callable
+from types import BuiltinFunctionType
 
 
 class PlaceholderArgument():
@@ -23,16 +27,57 @@ def _parse_keys(keys):
 
 
 class Bibliography:
-    def __init__(self, bibliography):
-        with open(bibliography, "r") as f:
-            self.bibliography = bibtexparser.load(f)
-        self.citations = {}
-        self.wrapped_functions = []
+    """Bibliography database
+
+    With this tool, you can easily track references used in the code. 
+    By using the ``Bibliography.register_cites`` decorator, you can specify a
+    set of bibtex keys that the decorated function uses. Then, if that
+    function is ever called, it will be logged together with the bibtex
+    keys used by the function. After running a program, the user can request
+    a list of all citations, and is then prompted with a list of function
+    calls and corresponding bibtex keys.
+
+    Arguments
+    ---------
+    bibliography : str
+        str string containing a BibTeX bibliography
+    parser : bibtexparser.bparser.BibTexParser [Optional]
+        Custom BibTexParser parser used to load the bibliography
+
+    Attributes
+    ----------
+    bib_database : bibtexparser.bibdatabase.BibDatabase
+    citations : Dict[str, Set[str]]
+        Dictionary with registered function calls as keys and the set of relevant
+        bibtex keys as values
+    wrapped_functions : List[Callable]
+        List of all functions monitored by the decorator
+    """
+    def __init__(self, bibliography: str, parser: BibTexParser=None) -> None:
+        self._full_bibliography = bibliography
+        self.bib_database = bibtexparser.loads(bibliography, parser=parser)
+        self.citations: Dict[str, Set[str]] = {}
+        self.wrapped_functions: List[Callable] = []
+    
+    @property
+    def full_bibliography(self):
+        """The string used to construct the database.
+        """
+        return self._full_bibliography
+
+    @classmethod
+    def load(cls, bibliography_file: TextIO, parser: BibTexParser = None) -> Bibliography:
+        return cls(bibliography_file.read())
     
     def __len__(self):
-        return len(self.bibliography.entries)
+        return len(self.bib_database.entries)
 
-    def _check_validity_of_citation(self, keys, cite_function, wrapped_function):
+    def _check_validity_of_citation(
+        self,
+        keys: Union[None, Set[str], str],
+        cite_function: Union[None, Callable],
+        wrapped_function: Callable
+    ) -> None:
         if keys is None and cite_function is None:
             raise ValueError("Must supply either set of bibtex keys or citation function.")
         if keys is not None and cite_function is not None:
@@ -44,7 +89,7 @@ class Bibliography:
 
             # Count number of keyword only arguments
             num_kwonly = cite_function.__code__.co_kwonlyargcount
-            kwdefaults = cite_function.__kwdefaults__
+            kwdefaults = cite_function.__kwdefaults__  # type: ignore
             if kwdefaults is None:
                 kwdefaults = {}
                 
@@ -76,7 +121,7 @@ class Bibliography:
                 if isinstance(citation_keys, str):
                     citation_keys = {citation_keys}
                 for citation_key in citation_keys:
-                    if citation_key not in self.bibliography.entries_dict:
+                    if citation_key not in self.bib_database.entries_dict:
                         signature = f"{wrapped_function.__module__}.{wrapped_function.__qualname__}({signature})"
                         raise ValueError(f"{citation_key} not in bibliography, but occurs for {signature}.")
         
@@ -84,12 +129,26 @@ class Bibliography:
             ## All possible citation keys are in the bibliography
             signature = f'{wrapped_function.__module__}.{wrapped_function.__qualname__}()'
             for citation_key in keys:
-                if citation_key not in self.bibliography.entries_dict:
+                if citation_key not in self.bib_database.entries_dict:
                     raise ValueError(f"{citation_key} not in bibliography, but occurs for {signature}.")
 
-    def cites(self, keys=None, cite_function=None):
+    def register_cites(
+        self, 
+        keys: Optional[Union[Set[str], str]] = None, 
+        cite_function: Optional[Callable] = None
+    ) -> Callable:
         def decorator(f):
             nonlocal self, keys, cite_function
+
+            if isinstance(f, BuiltinFunctionType):
+                raise TypeError(
+                    "Cannot wrap builtins or C-functions."
+                    " If you want to register cites for it, you must wrap it in a Python function too."
+                )
+            elif isinstance(f, type):
+                raise TypeError(
+                    "Cannot wrap types or classes. Wrap the constructor instead."
+                )
             self.wrapped_functions.append(f)
             if isinstance(keys, str):
                 keys = {keys}
@@ -118,14 +177,18 @@ class Bibliography:
         return decorator
 
     @property
-    def active_bibliography(self):
+    def active_bibliography(self) -> str:
+        """A BibTeX string containing only active entries.
+
+        An active entry is an entry in the database that is relevant to at least one used function call.
+        """
         active_database = BibDatabase()
         if len(self.citations) == 0:
             return ""
         used_keys = set.union(*self.citations.values())
         active_database.entries = [
             entry 
-            for key, entry in self.bibliography.entries_dict.items() 
+            for key, entry in self.bib_database.entries_dict.items() 
             if key in used_keys
         ]
         return bibtexparser.dumps(active_database)
